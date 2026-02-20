@@ -1,4 +1,4 @@
-# flutter_test_2
+# ai_schedule_generator
 
 A new Flutter project.
 

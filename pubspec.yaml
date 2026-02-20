@@ -1,4 +1,4 @@
-name: flutter_test_2
+name: ai_schedule_generator
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -30,11 +30,19 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # Icon gaya iOS (Cupertino)
   cupertino_icons: ^1.0.8
-
+  # Untuk melakukan request API (GET, POST, dll)
+  http: ^1.3.0
+  # Menampilkan teks dalam format Markdown
+  flutter_markdown: ^0.7.1
+  # Akses berbagai layanan Google API
+  googleapis: ^16.0.0
+  # Autentikasi ke layanan Google (OAuth, service account, dll)
+  googleapis_auth: ^2.0.0
+  # Preview tampilan di berbagai ukuran device saat development
+  device_preview: ^1.3.1
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -44,7 +52,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

@@ -1,4 +1,4 @@
-package com.example.flutter_test_2
+package com.example.ai_schedule_generator
 
 import io.flutter.embedding.android.FlutterActivity
 
