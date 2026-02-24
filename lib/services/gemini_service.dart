@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class GeminiService {
   // API Key - GANTI dengan milikmu (jangan hardcode di production!)
-  static const String apiKey = "AIzaSyApSgU8yCxI7JMAtvCwhW__FAFmfGn1ma0";
+  static const String apiKey = "AIzaSyDtxX9ssxPuCMAQlqw1sVAtG-SAZpNzP3A";
 
   // Gunakan model stabil terbaru (per 2026: gemini-1.5-flash atau gemini-1.5-flash-latest)
   // Endpoint Gemini API (generateContent)
@@ -34,7 +34,7 @@ class GeminiService {
           "temperature": 0.7,
           "topK": 40,
           "topP": 0.95,
-          "maxOutputTokens": 1024,
+          "maxOutputTokens": 3024,
         },
       };
 
@@ -90,13 +90,27 @@ class GeminiService {
 
     // Instruksi ke AI
     return """
-Buatkan jadwal harian yang efisien berdasarkan tugas berikut:
+Kamu adalah asisten produktivitas yang menyusun jadwal harian yang singkat, efisien, dan menyenangkan.
+
+Berikut daftar tugas yang harus dijadwalkan hari ini:
 $taskList
 
-PENTING:
-1. Sajikan output dalam format Markdown Table dengan kolom: Waktu, Kegiatan, Keterangan.
-2. Tambahkan emoji yang relevan.
-3. Berikan intro singkat semangat dan tips di bagian bawah (di luar tabel).
+Buat OUTPUT dalam format MARKDOWN dengan struktur PERSIS seperti ini:
+
+## JADWAL UNTUK KALENDER
+
+- HANYA berisi tabel jadwal yang akan diekspor ke Google Calendar.
+- Gunakan satu tabel dengan kolom: Waktu, Kegiatan, Keterangan.
+- Format kolom Waktu SELALU "HH:MM - HH:MM" (24 jam), contoh: "07:00 - 07:30".
+- Kolom Kegiatan adalah nama kegiatan singkat, misalnya "Belajar Matematika", "Makan", "Jalan-jalan".
+- Kolom Keterangan berisi penjelasan singkat (boleh pakai emoji).
+- Jangan menulis teks lain di luar tabel pada bagian ini (tidak ada paragraf tambahan).
+
+## TIPS PRODUKTIF
+
+- Di bagian ini, tulis paragraf singkat dan/atau bullet point berisi tips agar pengguna makin produktif.
+- Tips harus menyesuaikan dengan daftar kegiatan di tabel jadwal.
+- Boleh menggunakan emoji dan gaya bahasa yang menyemangati.
 """;
   }
 }
