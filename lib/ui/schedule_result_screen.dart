@@ -11,7 +11,7 @@ class ScheduleResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Pisahkan hasil AI menjadi dua bagian: jadwal & tips
+    // Debug log supaya kelihatan hasil mentah & setelah di-split
     debugPrint('=== RAW SCHEDULE RESULT ===');
     debugPrint(scheduleResult);
 
@@ -79,7 +79,7 @@ class ScheduleResultScreen extends StatelessWidget {
               ),
               const SizedBox(height: 15),
 
-              // KONTEN UTAMA (2 CARD) DALAM SCROLL
+              // KONTEN UTAMA: 2 card (Jadwal & Tips) berbagi tinggi
               Expanded(
                 child: Column(
                   children: [
@@ -87,7 +87,9 @@ class ScheduleResultScreen extends StatelessWidget {
                       child: _ScheduleCard(scheduleSection: scheduleSection),
                     ),
                     const SizedBox(height: 16),
-                    Expanded(child: _TipsCard(tipsSection: tipsSection)),
+                    Expanded(
+                      child: _TipsCard(tipsSection: tipsSection),
+                    ),
                   ],
                 ),
               ),
@@ -187,19 +189,29 @@ class _TipsCard extends StatelessWidget {
 /// Style markdown yang dipakai di kedua card
 MarkdownStyleSheet _markdownStyleSheet() {
   return MarkdownStyleSheet(
-    p: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
+    p: const TextStyle(
+      fontSize: 15,
+      height: 1.6,
+      color: Colors.black87,
+    ),
     h1: const TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.bold,
       color: Colors.indigo,
     ),
-    h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+    h2: const TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.bold,
+    ),
     h3: const TextStyle(
       fontSize: 18,
       fontWeight: FontWeight.w600,
       color: Colors.indigoAccent,
     ),
-    tableBorder: TableBorder.all(color: Colors.grey, width: 1),
+    tableBorder: TableBorder.all(
+      color: Colors.grey,
+      width: 1,
+    ),
     tableHeadAlign: TextAlign.center,
     tablePadding: const EdgeInsets.all(8),
   );
@@ -208,7 +220,6 @@ MarkdownStyleSheet _markdownStyleSheet() {
 /// Memisahkan hasil AI menjadi (jadwal, tips).
 /// Asumsi: ada heading '## JADWAL UNTUK KALENDER' dan '## TIPS PRODUKTIF'.
 (String, String) _splitScheduleAndTips(String fullText) {
-  // Pakai lowercase untuk pencarian, supaya tidak sensitif huruf besar/kecil
   final lower = fullText.toLowerCase();
 
   const scheduleMarker = '## jadwal untuk kalender';
@@ -304,15 +315,15 @@ Future<void> _ensureLoggedInAndExport(
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal ekspor ke Calendar: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal ekspor ke Calendar: $e')),
+      );
     }
   }
 }
 
 /// Parser tabel jadwal menjadi list Event.
-/// Asumsi: tabel dengan kolom pertama "07:00 - 07:05" dan kolom kedua "Nama Kegiatan".
+/// Asumsi: kolom pertama "07:00 - 07:05" dan kolom kedua "Nama Kegiatan".
 List<gcal.Event> _parseMarkdownToEvents(String markdown) {
   final lines = markdown.split('\n');
   final List<gcal.Event> events = [];
@@ -408,6 +419,7 @@ class TableBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
+    // Pakai renderer default
     return null;
   }
 }

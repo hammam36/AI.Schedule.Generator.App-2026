@@ -1,14 +1,10 @@
 import 'package:google_sign_in/google_sign_in.dart';
-
-// Ganti string di bawah dengan Web Client ID milikmu
-const String webClientId =
-    '1057332106363-85f2r4s0e51kl5k94umiagcldpe7gplp.apps.googleusercontent.com';
+import 'package:ai_schedule_generator/config/secret.dart';
 
 final GoogleSignIn googleSignIn = GoogleSignIn(
   clientId: webClientId,
   scopes: [
     'email',
-    // nanti kalau sudah aman, tambahkan scope calendar:
     'https://www.googleapis.com/auth/calendar',
   ],
 );

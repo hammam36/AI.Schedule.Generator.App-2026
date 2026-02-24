@@ -1,12 +1,11 @@
-import 'dart:convert'; // Untuk encode/decode JSON
+import 'dart:convert';
+import 'package:ai_schedule_generator/config/secret.dart';
 import 'package:http/http.dart' as http;
 
 class GeminiService {
-  // API Key - GANTI dengan milikmu (jangan hardcode di production!)
-  static const String apiKey = "AIzaSyDtxX9ssxPuCMAQlqw1sVAtG-SAZpNzP3A";
+  // API Key - development (ingat: ini sebaiknya nanti dipindah ke file secret yang tidak di-commit)
+  static const String apiKey = geminiApiKey;
 
-  // Gunakan model stabil terbaru (per 2026: gemini-1.5-flash atau gemini-1.5-flash-latest)
-  // Endpoint Gemini API (generateContent)
   static const String baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
 
@@ -14,13 +13,10 @@ class GeminiService {
     List<Map<String, dynamic>> tasks,
   ) async {
     try {
-      // Bangun prompt dari data tugas
       final prompt = _buildPrompt(tasks);
 
-      // Siapkan URL dengan API key sebagai query param
       final url = Uri.parse('$baseUrl?key=$apiKey');
 
-      // Body request sesuai spec resmi Gemini
       final requestBody = {
         "contents": [
           {
@@ -29,7 +25,6 @@ class GeminiService {
             ],
           },
         ],
-        // Optional: tambah konfigurasi (temperature, maxOutputTokens, dll)
         "generationConfig": {
           "temperature": 0.7,
           "topK": 40,
@@ -38,14 +33,12 @@ class GeminiService {
         },
       };
 
-      // Kirim POST request
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(requestBody),
       );
 
-      // Handle response
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data["candidates"] != null &&
@@ -81,14 +74,11 @@ class GeminiService {
     }
   }
 
-  // Fungsi untuk membentuk prompt (Prompt Engineering)
   static String _buildPrompt(List<Map<String, dynamic>> tasks) {
-    // Ubah list tugas menjadi format teks terstruktur
     String taskList = tasks
         .map((e) => "- ${e['name']} (${e['duration']} menit)")
         .join("\n");
 
-    // Instruksi ke AI
     return """
 Kamu adalah asisten produktivitas yang menyusun jadwal harian yang singkat, efisien, dan menyenangkan.
 
