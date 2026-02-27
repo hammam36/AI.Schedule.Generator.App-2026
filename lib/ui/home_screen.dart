@@ -1,31 +1,26 @@
 // lib/ui/home_screen.dart
+import 'package:ai_schedule_generator/auth/google_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:ai_schedule_generator/services/gemini_service.dart';
 import 'schedule_result_screen.dart';
-import 'package:ai_schedule_generator/auth/google_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-
 class _HomeScreenState extends State<HomeScreen> {
   // ★ simpan user yang sedang login
   GoogleSignInAccount? _currentUser;
-
 
   final List<Map<String, dynamic>> tasks = [];
   final TextEditingController taskController = TextEditingController();
   final TextEditingController durationController = TextEditingController();
   String? priority;
   bool isLoading = false;
-
 
   @override
   void initState() {
@@ -38,14 +33,12 @@ class _HomeScreenState extends State<HomeScreen> {
     googleSignIn.signInSilently();
   }
 
-
   @override
   void dispose() {
     taskController.dispose();
     durationController.dispose();
     super.dispose();
   }
-
 
   void _addTask() {
     if (taskController.text.isNotEmpty &&
@@ -64,7 +57,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-
   void _generateSchedule() async {
     if (tasks.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,8 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              ScheduleResultScreen(scheduleResult: schedule),
+          builder: (context) => ScheduleResultScreen(scheduleResult: schedule),
         ),
       );
     } catch (e) {
@@ -91,7 +82,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => isLoading = false);
     }
   }
-
 
   // ★ AppBar sekarang punya tombol login / profil
   @override
@@ -107,12 +97,18 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () async {
                 final account = await signInWithGoogle();
                 if (!mounted) return;
+
                 if (account == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Login dibatalkan')),
                   );
                   return;
                 }
+
+                setState(() {
+                  _currentUser = account;
+                });
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
@@ -126,8 +122,15 @@ class _HomeScreenState extends State<HomeScreen> {
             PopupMenuButton<String>(
               icon: const Icon(Icons.account_circle),
               onSelected: (value) async {
-                if (value == 'logout') await signOutFromGoogle();
+                if (value == 'logout') {
+                  await signOutFromGoogle();
+                  if (!mounted) return;
+                  setState(() {
+                    _currentUser = null;
+                  });
+                }
               },
+
               itemBuilder: (context) => <PopupMenuEntry<String>>[
                 PopupMenuItem<String>(
                   enabled: false,
@@ -187,8 +190,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             prefixIcon: Icon(Icons.flag),
                           ),
                           items: ["Tinggi", "Sedang", "Rendah"]
-                              .map((e) =>
-                                  DropdownMenuItem(value: e, child: Text(e)))
+                              .map(
+                                (e) =>
+                                    DropdownMenuItem(value: e, child: Text(e)),
+                              )
                               .toList(),
                           onChanged: (val) => setState(() => priority = val),
                         ),
@@ -229,7 +234,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             setState(() => tasks.removeAt(index)),
                         child: Card(
                           margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 4),
+                            horizontal: 16,
+                            vertical: 4,
+                          ),
                           child: ListTile(
                             leading: CircleAvatar(
                               backgroundColor: _getColor(task['priority']),
@@ -240,15 +247,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             title: Text(
                               task['name'],
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             subtitle: Text(
                               "${task['duration']} Menit • ${task['priority']}",
                             ),
                             trailing: IconButton(
-                              icon:
-                                  const Icon(Icons.delete, color: Colors.red),
+                              icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () =>
                                   setState(() => tasks.removeAt(index)),
                             ),
@@ -273,7 +280,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 
   Color _getColor(String priority) {
     if (priority == "Tinggi") return Colors.red;

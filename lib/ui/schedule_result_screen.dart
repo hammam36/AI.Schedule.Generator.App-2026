@@ -1,8 +1,9 @@
+import 'dart:html' as html; // khusus Flutter Web
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
-import 'package:http/http.dart' as http;
 import 'package:ai_schedule_generator/auth/google_auth.dart';
 
 class ScheduleResultScreen extends StatelessWidget {
@@ -11,18 +12,9 @@ class ScheduleResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Debug log supaya kelihatan hasil mentah & setelah di-split
-    debugPrint('=== RAW SCHEDULE RESULT ===');
-    debugPrint(scheduleResult);
-
     final sections = _splitScheduleAndTips(scheduleResult);
     final scheduleSection = sections.$1;
     final tipsSection = sections.$2;
-
-    debugPrint('=== SCHEDULE SECTION ===');
-    debugPrint(scheduleSection);
-    debugPrint('=== TIPS SECTION ===');
-    debugPrint(tipsSection);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -42,8 +34,8 @@ class ScheduleResultScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.calendar_month),
             tooltip: "Ekspor Jadwal ke Google Calendar",
-            onPressed: () async {
-              await _ensureLoggedInAndExport(context, scheduleSection);
+            onPressed: () {
+              _showExportDialog(context, scheduleSection);
             },
           ),
         ],
@@ -87,9 +79,7 @@ class ScheduleResultScreen extends StatelessWidget {
                       child: _ScheduleCard(scheduleSection: scheduleSection),
                     ),
                     const SizedBox(height: 16),
-                    Expanded(
-                      child: _TipsCard(tipsSection: tipsSection),
-                    ),
+                    Expanded(child: _TipsCard(tipsSection: tipsSection)),
                   ],
                 ),
               ),
@@ -111,7 +101,7 @@ class ScheduleResultScreen extends StatelessWidget {
   }
 }
 
-/// Card untuk bagian jadwal (tabel) yang bisa diekspor ke Calendar
+/// Card untuk bagian jadwal (tabel)
 class _ScheduleCard extends StatelessWidget {
   final String scheduleSection;
   const _ScheduleCard({required this.scheduleSection});
@@ -189,36 +179,25 @@ class _TipsCard extends StatelessWidget {
 /// Style markdown yang dipakai di kedua card
 MarkdownStyleSheet _markdownStyleSheet() {
   return MarkdownStyleSheet(
-    p: const TextStyle(
-      fontSize: 15,
-      height: 1.6,
-      color: Colors.black87,
-    ),
+    p: const TextStyle(fontSize: 15, height: 1.6, color: Colors.black87),
     h1: const TextStyle(
       fontSize: 24,
       fontWeight: FontWeight.bold,
       color: Colors.indigo,
     ),
-    h2: const TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.bold,
-    ),
+    h2: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
     h3: const TextStyle(
       fontSize: 18,
       fontWeight: FontWeight.w600,
       color: Colors.indigoAccent,
     ),
-    tableBorder: TableBorder.all(
-      color: Colors.grey,
-      width: 1,
-    ),
+    tableBorder: TableBorder.all(color: Colors.grey, width: 1),
     tableHeadAlign: TextAlign.center,
     tablePadding: const EdgeInsets.all(8),
   );
 }
 
 /// Memisahkan hasil AI menjadi (jadwal, tips).
-/// Asumsi: ada heading '## JADWAL UNTUK KALENDER' dan '## TIPS PRODUKTIF'.
 (String, String) _splitScheduleAndTips(String fullText) {
   final lower = fullText.toLowerCase();
 
@@ -227,7 +206,6 @@ MarkdownStyleSheet _markdownStyleSheet() {
 
   final idxSchedule = lower.indexOf(scheduleMarker);
   if (idxSchedule == -1) {
-    // Tidak ada marker, anggap seluruh teks sebagai jadwal
     return (fullText.trim(), '');
   }
 
@@ -244,7 +222,7 @@ MarkdownStyleSheet _markdownStyleSheet() {
   return (scheduleSection, tipsSection);
 }
 
-// ===================== GOOGLE CALENDAR EXPORT =======================
+// ===================== "EXPORT" VIA GOOGLE CALENDAR URL =======================
 
 Future<void> _ensureLoggedInAndExport(
   BuildContext context,
@@ -262,31 +240,27 @@ Future<void> _ensureLoggedInAndExport(
       return;
     }
 
-    // Pastikan sudah login
-    var user = googleSignIn.currentUser;
-    if (user == null) {
-      user = await signInWithGoogle();
-      if (user == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Login diperlukan untuk ekspor')),
-          );
-        }
-        return;
+    // Pastikan punya client yang sudah ter-auth
+    final client = await getAuthenticatedClient();
+    if (client == null) {
+      // ignore: avoid_print
+      print('EXPORT: getAuthenticatedClient() returned NULL');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Login Google diperlukan untuk ekspor ke Calendar.'),
+          ),
+        );
       }
+      return;
     }
 
-    // Ambil auth headers dari user yang login
-    final authHeaders = await user.authHeaders;
-
-    // Buat http.Client yang otomatis menambahkan header auth
-    final client = _GoogleAuthClient(authHeaders);
-
-    // Inisialisasi Calendar API
+    // Inisialisasi Calendar API dengan client ber-token
     final calendarApi = gcal.CalendarApi(client);
 
-    // Parse teks jadwal AI jadi list Event
-    final events = _parseMarkdownToEvents(markdownSchedule);
+    // Parse jadwal jadi list event
+    final events = _parseMarkdownToSimpleEvents(markdownSchedule);
 
     if (events.isEmpty) {
       if (context.mounted) {
@@ -301,95 +275,118 @@ Future<void> _ensureLoggedInAndExport(
       return;
     }
 
-    // Insert setiap event ke calendar "primary"
+    // Insert semua event ke primary calendar
     for (final event in events) {
       await calendarApi.events.insert(event, 'primary');
     }
 
+    if (!context.mounted) return;
+
+    // Tampilkan dialog sukses + tombol buka Calendar (1 tab saja)
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Berhasil Ekspor'),
+          content: Text(
+            'Berhasil menambahkan ${events.length} kegiatan ke Google Calendar.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Tutup'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                html.window.open(
+                  'https://calendar.google.com/calendar/u/0/r',
+                  '_blank',
+                );
+              },
+              child: const Text('Buka di Google Calendar'),
+            ),
+          ],
+        );
+      },
+    );
+  } catch (e, st) {
+    // print ke console untuk lihat status code / body error
+    // (penting banget buat lihat apakah 401, 403, dll)
+    // ignore: avoid_print
+    print('EXPORT_ERROR: $e');
+    // ignore: avoid_print
+    print(st);
+
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Berhasil ekspor ${events.length} event ke Calendar'),
-        ),
-      );
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal ekspor ke Calendar: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal ekspor ke Calendar: $e')));
     }
   }
 }
 
-/// Parser tabel jadwal menjadi list Event.
-/// Asumsi: kolom pertama "07:00 - 07:05" dan kolom kedua "Nama Kegiatan".
-List<gcal.Event> _parseMarkdownToEvents(String markdown) {
-  final lines = markdown.split('\n');
-  final List<gcal.Event> events = [];
+/// Model sederhana event untuk keperluan URL Calendar
+class SimpleEvent {
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final String? description;
 
+  SimpleEvent({
+    required this.title,
+    required this.start,
+    required this.end,
+    this.description,
+  });
+}
+
+/// Parser tabel jadwal menjadi list Event Google Calendar.
+/// Asumsi: kolom pertama "07:00 - 07:05" dan kolom kedua "Nama Kegiatan".
+List<_ScheduleEvent> _parseMarkdownToSimpleEvents(String markdown) {
+  final lines = markdown.split('\n');
+  final List<_ScheduleEvent> events = [];
   final today = DateTime.now();
 
-  for (final rawLine in lines) {
-    var line = rawLine.trim();
+  for (var raw in lines) {
+    var line = raw.trim();
     if (line.isEmpty) continue;
-
-    // Proses hanya baris tabel, bukan header/separator
     if (!line.startsWith('|')) continue;
     if (line.contains(':---')) continue;
     if (line.contains('Waktu') && line.contains('Kegiatan')) continue;
 
-    // Buang '|' di awal/akhir lalu pecah
-    if (line.startsWith('|')) {
-      line = line.substring(1);
-    }
-    if (line.endsWith('|')) {
-      line = line.substring(0, line.length - 1);
-    }
+    if (line.startsWith('|')) line = line.substring(1);
+    if (line.endsWith('|')) line = line.substring(0, line.length - 1);
 
     final cols = line.split('|').map((c) => c.trim()).toList();
     if (cols.length < 2) continue;
 
     final timePart = cols[0];
     final titlePart = cols[1];
+    final descPart = cols.length > 2 ? cols[2] : '';
 
     if (!timePart.contains('-')) continue;
-
-    final timeRange = timePart.split('-');
-    if (timeRange.length != 2) continue;
+    final range = timePart.split('-');
+    if (range.length != 2) continue;
 
     try {
-      final startStr = timeRange[0].trim();
-      final endStr = timeRange[1].trim();
+      final startStr = range[0].trim();
+      final endStr = range[1].trim();
 
-      final startHour = int.parse(startStr.split(':')[0]);
-      final startMin = int.parse(startStr.split(':')[1]);
-      final endHour = int.parse(endStr.split(':')[0]);
-      final endMin = int.parse(endStr.split(':')[1]);
+      final sh = int.parse(startStr.split(':')[0]);
+      final sm = int.parse(startStr.split(':')[1]);
+      final eh = int.parse(endStr.split(':')[0]);
+      final em = int.parse(endStr.split(':')[1]);
 
-      final startDateTime = DateTime(
-        today.year,
-        today.month,
-        today.day,
-        startHour,
-        startMin,
-      );
+      final start = DateTime(today.year, today.month, today.day, sh, sm);
+      final end = DateTime(today.year, today.month, today.day, eh, em);
 
-      final endDateTime = DateTime(
-        today.year,
-        today.month,
-        today.day,
-        endHour,
-        endMin,
-      );
-
-      final event = gcal.Event(
-        summary: titlePart,
-        start: gcal.EventDateTime(dateTime: startDateTime),
-        end: gcal.EventDateTime(dateTime: endDateTime),
-      );
-
-      events.add(event);
+      events.add(_ScheduleEvent(
+        title: titlePart,
+        start: start,
+        end: end,
+        description: descPart,
+      ));
     } catch (_) {
       continue;
     }
@@ -398,18 +395,20 @@ List<gcal.Event> _parseMarkdownToEvents(String markdown) {
   return events;
 }
 
-class _GoogleAuthClient extends http.BaseClient {
-  final Map<String, String> _headers;
-  final http.Client _client = http.Client();
+class _ScheduleEvent {
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final String description;
 
-  _GoogleAuthClient(this._headers);
-
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) {
-    request.headers.addAll(_headers);
-    return _client.send(request);
-  }
+  _ScheduleEvent({
+    required this.title,
+    required this.start,
+    required this.end,
+    required this.description,
+  });
 }
+
 
 class TableBuilder extends MarkdownElementBuilder {
   @override
@@ -419,7 +418,88 @@ class TableBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    // Pakai renderer default
     return null;
   }
 }
+
+String _buildGoogleCalendarEventUrl({
+  required String title,
+  required DateTime start,
+  required DateTime end,
+  String? description,
+}) {
+  // Format: YYYYMMDDTHHMMSS (tanpa zona, Google anggap pakai timezone user) [web:229]
+  String fmt(DateTime dt) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${dt.year}${two(dt.month)}${two(dt.day)}T'
+        '${two(dt.hour)}${two(dt.minute)}${two(dt.second)}';
+  }
+
+  final startStr = fmt(start);
+  final endStr = fmt(end);
+
+  final params = <String, String>{
+    'action': 'TEMPLATE',
+    'text': title,
+    'dates': '$startStr/$endStr',
+    if (description != null && description.trim().isNotEmpty)
+      'details': description,
+  };
+
+  // encode ke query string
+  final query = params.entries
+      .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+      .join('&');
+
+  return 'https://calendar.google.com/calendar/render?$query';
+}
+
+void _showExportDialog(BuildContext context, String markdownSchedule) {
+  final events = _parseMarkdownToSimpleEvents(markdownSchedule);
+  if (events.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tidak ada baris jadwal yang bisa diekspor.'),
+      ),
+    );
+    return;
+  }
+
+  showModalBottomSheet(
+    context: context,
+    builder: (context) {
+      return SafeArea(
+        child: ListView.separated(
+          padding: const EdgeInsets.all(16),
+          itemCount: events.length,
+          separatorBuilder: (_, __) => const Divider(),
+          itemBuilder: (context, index) {
+            final ev = events[index];
+            final timeStr =
+                '${ev.start.hour.toString().padLeft(2, '0')}:${ev.start.minute.toString().padLeft(2, '0')}'
+                ' - '
+                '${ev.end.hour.toString().padLeft(2, '0')}:${ev.end.minute.toString().padLeft(2, '0')}';
+
+            return ListTile(
+              title: Text(ev.title),
+              subtitle: Text(timeStr),
+              trailing: TextButton(
+                child: const Text('Tambah'),
+                onPressed: () {
+                  final url = _buildGoogleCalendarEventUrl(
+                    title: ev.title,
+                    start: ev.start,
+                    end: ev.end,
+                    description: ev.description,
+                  );
+                  html.window.open(url, '_blank'); // perlu import dart:html
+                },
+              ),
+            );
+          },
+        ),
+      );
+    },
+  );
+}
+
