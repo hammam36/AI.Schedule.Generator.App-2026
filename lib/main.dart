@@ -35,13 +35,13 @@ class MainApp extends StatelessWidget {
       // Tema global menggunakan Material 3
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.indigo, // warna brand utama
+          seedColor: const Color(0xFF667eea), // warna brand utama (biru-ungu)
           brightness: Brightness.light,
         ),
         useMaterial3: true,
         scaffoldBackgroundColor: Colors.grey[50],
         appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.indigo,
+          backgroundColor: Color(0xFF667eea),
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
